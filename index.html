@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Comment box</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+
+  <svg id="canvas" width="600" height="600">
+    <path style="display: none;" d="M26,0C11.664,0,0,11.663,0,26s11.664,26,26,26s26-11.663,26-26S40.336,0,26,0z M38.5,28H28v11c0,1.104-0.896,2-2,2  s-2-0.896-2-2V28H13.5c-1.104,0-2-0.896-2-2s0.896-2,2-2H24V14c0-1.104,0.896-2,2-2s2,0.896,2,2v10h10.5c1.104,0,2,0.896,2,2  S39.604,28,38.5,28z" />
+
+    <circle id="testShape" cx="140" cy="240" r="10" />
+
+    <g class="commentWrapper" id="commentWrapper" style="transform: translate(50px, 100px);">
+      <polygon style="opacity:0;" points="-25 -10 -10 -25 15 0 0 15" />
+      <rect id="mainRect" x="0" y="0" rx="10" ry="10" width="180" height="140" style="fill:#bef0e1;stroke:#acacac;" />
+
+      <g>
+
+        <g class="reszHandles" style="fill:#579c9e;">
+          <circle id="leftPt" style="cursor:w-resize;" cx="0" cy="70" r="8" />
+          <circle id="rightPt" style="cursor:e-resize;" cx="180" cy="70" r="8" />
+          <circle id="topPt" style="cursor:n-resize;" cx="90" cy="0" r="8" />
+          <circle id="bottomPt" style="cursor:s-resize;" cx="90" cy="140" r="8" />
+        </g>
+        <g class="commentMove" id="movePt" style="transform:translate(-24px,-24px);cursor:move">
+          <circle style="opacity:0" cx="12" cy="12" r="12" />
+          <polygon style="fill:#494949;" points="12 0 7 5 10 5 10 10 5 10 5 7 0 12 5 17 5 14 10 14 10 19 7 19 12 24 17 19 14 19 14 14 19 14 19 17 24 12 19 7 19 10 14 10 14 5 17 5" />
+        </g>
+        <circle id="commentOptionsBtn" class="commentOptBtn" style="cursor:pointer;fill:#acacac;stroke:#808080;" cx="165" cy="15" r="6" />
+        <g id="commentOptions" class="commentOptions displayNone" style="transform:translate(153px,-63px);">
+          <rect style="opacity:0;" x="-3" y="0" width="30" height="65" />
+          <g id="deleteBtn" style="cursor:pointer;transform:translateY(33px);">
+            <rect style="opacity:0;" x="0" y="0" width="24" height="24" />
+            <path d="M22,4.25H16.75V2.5A2.2534,2.2534,0,0,0,14.5.25h-5A2.2534,2.2534,0,0,0,7.25,2.5V4.25H2a.75.75,0,0,0,0,1.5H3.25V21A2.7485,2.7485,0,0,0,6,23.75H18A2.7485,2.7485,0,0,0,20.75,21V5.75H22a.75.75,0,0,0,0-1.5ZM8.75,2.5a.7555.7555,0,0,1,.75-.75h5a.7555.7555,0,0,1,.75.75V4.25H8.75ZM19.25,21A1.25,1.25,0,0,1,18,22.25H6A1.25,1.25,0,0,1,4.75,21V5.75h14.5Z" />
+            <path d="M12,19.75a.75.75,0,0,1-.75-.75V10a.75.75,0,0,1,1.5,0v9A.75.75,0,0,1,12,19.75Z" />
+            <path d="M16,19.75a.75.75,0,0,1-.75-.75V10a.75.75,0,0,1,1.5,0v9A.75.75,0,0,1,16,19.75Z" />
+            <path d="M8,19.75A.75.75,0,0,1,7.25,19V10a.75.75,0,0,1,1.5,0v9A.75.75,0,0,1,8,19.75Z" />
+          </g>
+          <g id="anotherBtn" style="cursor:pointer;transform: translateY(3px);">
+            <rect style="opacity:0;" x="0" y="0" width="24" height="24" />
+            <path d="M22,4.25H16.75V2.5A2.2534,2.2534,0,0,0,14.5.25h-5A2.2534,2.2534,0,0,0,7.25,2.5V4.25H2a.75.75,0,0,0,0,1.5H3.25V21A2.7485,2.7485,0,0,0,6,23.75H18A2.7485,2.7485,0,0,0,20.75,21V5.75H22a.75.75,0,0,0,0-1.5ZM8.75,2.5a.7555.7555,0,0,1,.75-.75h5a.7555.7555,0,0,1,.75.75V4.25H8.75ZM19.25,21A1.25,1.25,0,0,1,18,22.25H6A1.25,1.25,0,0,1,4.75,21V5.75h14.5Z" />
+            <path d="M12,19.75a.75.75,0,0,1-.75-.75V10a.75.75,0,0,1,1.5,0v9A.75.75,0,0,1,12,19.75Z" />
+            <path d="M16,19.75a.75.75,0,0,1-.75-.75V10a.75.75,0,0,1,1.5,0v9A.75.75,0,0,1,16,19.75Z" />
+            <path d="M8,19.75A.75.75,0,0,1,7.25,19V10a.75.75,0,0,1,1.5,0v9A.75.75,0,0,1,8,19.75Z" />
+          </g>
+        </g>
+        <text id="textContent" style="font-size:15px;font-family:sans-serif;transform:translate(25px,40px);">
+          <tspan x="0" dy="0">Add a comment...</tspan>
+          <tspan x="0" dy="15">xxx...</tspan>
+          <tspan x="0" dy="15">zzz...</tspan>
+        </text>
+
+      </g>
+
+    </g>
+
+  </svg>
+
+  <button id="comment-tool">Add comment</button>
+
+  <script src="./script.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,57 @@
+svg {
+  background-color: lightgray;
+}
+
+/* Generic to toggle */
+
+.displayNone {
+  display: none;
+}
+
+/* 
+Not working, should be applied only to transform scale(), maybe add and remove with js when is needed
+.commentWrapper {
+  transition: transform 1s;
+} */
+
+/* The resize handles */
+
+.reszHandles > circle {
+  opacity:0;
+}
+
+.commentWrapper:hover .reszHandles > circle {
+  opacity:1;
+}
+
+/* The move handle */
+
+.commentMove {
+  opacity: 0;
+}
+
+.commentWrapper:hover .commentMove {
+  opacity:0.5;
+}
+
+.commentWrapper:hover .commentMove:hover {
+  opacity: 1;
+}
+
+/* The comment options */
+
+.commentOptBtn {
+  opacity: 0;
+}
+
+.commentWrapper:hover .commentOptBtn {
+  opacity: 1;
+}
+
+.commentOptions {
+  opacity: 0;
+}
+
+.commentWrapper:hover .commentOptions {
+  opacity: 1;
+}
