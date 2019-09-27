@@ -1,8 +1,8 @@
 const svg = document.getElementById('canvas');
 
 const settings = {
-  width: '180',
-  height: '140',
+  width: 180,
+  height: 140,
   cornerRadius: '10',
   dragPtRadius: '8',
   rectFill: '#bef0e1',
@@ -19,6 +19,8 @@ class BoxComment {
     this.svg = svg;
     this.mousemoveHandler = this.mousemoveHandler.bind(this);
     this.mouseupHandler = this.mouseupHandler.bind(this);
+    this.mousedownRightHandleHandler = this.mousedownRightHandleHandler.bind(this);
+    this.mousedownBottomHandleHandler = this.mousedownBottomHandleHandler.bind(this);
     this.enableComment = this.enableComment.bind(this);
     this.deleteComment = this.deleteComment.bind(this);
     this.createComment(point);
@@ -33,7 +35,6 @@ class BoxComment {
 
   id = uuidv4();
 
-  // commentedElement;  // This will be the SVG element to be commented, maybe more than one element
   allowDrag = false;
   commentWrapper;
   mainRect;
@@ -56,6 +57,24 @@ class BoxComment {
   reszPtStartY;
   // An auxiliary SVG group to hide everything but the rectangle when the comment is minimized
   auxGroup;
+
+  // Para simplificar habria que poner un solo mousedown en commentWrapper que controlara de donde viene el mousedown y aplicara correspondientemente el codigo
+  mousedownRightHandleHandler(e) {
+    this.allowDrag = true;
+    this.startPt = getRelativeCoords(e, this.svg);
+    this.startW = this.mainRect.width.baseVal.value;
+    this.reszPtStartX = this.reszRPt.cx.baseVal.value;
+    this.startOptionsTransform = this.optionsContainer.style.transform.match(this.transformRegExp);
+    this.activeHandle = 'r';
+  }
+
+  mousedownBottomHandleHandler(e) {
+    this.allowDrag = true;
+    this.startPt = getRelativeCoords(e, this.svg);
+    this.startH = this.mainRect.height.baseVal.value;
+    this.reszPtStartY = this.reszBPt.cy.baseVal.value;
+    this.activeHandle = 'b';
+  }
 
   createComment(point) {
     this.commentWrapper = document.createElementNS(this.svgNS, 'g');
@@ -86,14 +105,7 @@ class BoxComment {
     this.reszRPt.setAttribute('cy', this.settings.height / 2);
     this.reszRPt.setAttribute('r', this.settings.dragPtRadius);
     this.reszRPt.setAttribute('style', 'cursor:e-resize');
-    this.reszRPt.addEventListener('mousedown', e => {
-      this.allowDrag = true;
-      this.startPt = getRelativeCoords(e, this.svg);
-      this.startW = this.mainRect.width.baseVal.value;
-      this.reszPtStartX = this.reszRPt.cx.baseVal.value;
-      this.startOptionsTransform = this.optionsContainer.style.transform.match(this.transformRegExp);
-      this.activeHandle = 'r';
-    });
+    this.reszRPt.addEventListener('mousedown', this.mousedownRightHandleHandler);
     // The left handle
     this.reszLPt = document.createElementNS(this.svgNS, 'circle');
     this.reszLPt.setAttribute('cx', '0');
@@ -129,13 +141,7 @@ class BoxComment {
     this.reszBPt.setAttribute('cy', this.settings.height);
     this.reszBPt.setAttribute('r', this.settings.dragPtRadius);
     this.reszBPt.setAttribute('style', 'cursor:s-resize');
-    this.reszBPt.addEventListener('mousedown', e => {
-      this.allowDrag = true;
-      this.startPt = getRelativeCoords(e, this.svg);
-      this.startH = this.mainRect.height.baseVal.value;
-      this.reszPtStartY = this.reszBPt.cy.baseVal.value;
-      this.activeHandle = 'b';
-    });
+    this.reszBPt.addEventListener('mousedown', this.mousedownBottomHandleHandler);
     // Append all the handles to the group and the group to the comment
     handlesGroup.appendChild(this.reszRPt);
     handlesGroup.appendChild(this.reszLPt);
@@ -206,38 +212,53 @@ class BoxComment {
     this.mainRect.style.cursor = 'pointer';
   }
 
+  moveComment(e) {
+    const deltaX = getRelativeCoords(e, this.svg).x - this.startPt.x;
+    const deltaY = getRelativeCoords(e, this.svg).y - this.startPt.y;
+    this.commentWrapper.style.transform = `translate(${Number(this.startTransform[1]) + deltaX}px, ${Number(this.startTransform[2]) + deltaY}px) scale(1)`;
+  }
+
+  resizeRight(e) {
+    const deltaX = getRelativeCoords(e, this.svg).x - this.startPt.x;
+    this.mainRect.setAttribute('width', this.startW + deltaX);
+    this.reszRPt.setAttribute('cx', this.reszPtStartX + deltaX);
+    this.reszTPt.setAttribute('cx', this.mainRect.width.baseVal.value / 2);
+    this.reszBPt.setAttribute('cx', this.mainRect.width.baseVal.value / 2);
+    this.optionsBtn.setAttribute('cx', this.startW + deltaX - 15);
+    this.optionsContainer.style.transform = `translate(${Number(this.startOptionsTransform[1]) + deltaX}px, ${this.startOptionsTransform[2]}px)`;
+    this.commentWrapper.style.transformOrigin = `${this.mainRect.width.baseVal.value / 2}px ${this.mainRect.height.baseVal.value}px`;
+  }
+
+  resizeLeft(e) {
+    const deltaX = getRelativeCoords(e, this.svg).x - this.startPt.x;
+    this.mainRect.setAttribute('width', this.startW - deltaX);
+    this.reszTPt.setAttribute('cx', this.mainRect.width.baseVal.value / 2);
+    this.reszBPt.setAttribute('cx', this.mainRect.width.baseVal.value / 2);
+    this.reszRPt.setAttribute('cx', this.reszPtStartX - deltaX);
+    this.optionsBtn.setAttribute('cx', this.startW - deltaX - 15);
+    this.optionsContainer.style.transform = `translate(${Number(this.startOptionsTransform[1]) - deltaX}px, ${this.startOptionsTransform[2]}px)`;
+    this.commentWrapper.style.transform = `translate(${Number(this.startTransform[1]) + deltaX}px, ${this.startTransform[2]}px) scale(1)`;
+    this.commentWrapper.style.transformOrigin = `${this.mainRect.width.baseVal.value / 2}px ${this.mainRect.height.baseVal.value}px`;
+  }
+
+  resizeBottom(e) {
+    const deltaY = getRelativeCoords(e, this.svg).y - this.startPt.y;
+    this.mainRect.setAttribute('height', this.startH + deltaY);
+    this.reszBPt.setAttribute('cy', this.reszPtStartY + deltaY);
+    this.reszRPt.setAttribute('cy', this.mainRect.height.baseVal.value / 2);
+    this.reszLPt.setAttribute('cy', this.mainRect.height.baseVal.value / 2);
+    this.commentWrapper.style.transformOrigin = `${this.mainRect.width.baseVal.value / 2}px ${this.mainRect.height.baseVal.value}px`;
+  }
 
   mousemoveHandler(e) {
     if (this.allowDrag && this.activeHandle === 'm') {
-      const deltaX = getRelativeCoords(e, this.svg).x - this.startPt.x;
-      const deltaY = getRelativeCoords(e, this.svg).y - this.startPt.y;
-      this.commentWrapper.style.transform = `translate(${Number(this.startTransform[1]) + deltaX}px, ${Number(this.startTransform[2]) + deltaY}px) scale(1)`;
+      this.moveComment(e);
     } else if (this.allowDrag && this.activeHandle === 'r') {
-      const deltaX = getRelativeCoords(e, this.svg).x - this.startPt.x;
-      this.mainRect.setAttribute('width', this.startW + deltaX);
-      this.reszRPt.setAttribute('cx', this.reszPtStartX + deltaX);
-      this.reszTPt.setAttribute('cx', this.mainRect.width.baseVal.value / 2);
-      this.reszBPt.setAttribute('cx', this.mainRect.width.baseVal.value / 2);
-      this.optionsBtn.setAttribute('cx', this.startW + deltaX - 15);
-      this.optionsContainer.style.transform = `translate(${Number(this.startOptionsTransform[1]) + deltaX}px, ${this.startOptionsTransform[2]}px)`;
-      this.commentWrapper.style.transformOrigin = `${this.mainRect.width.baseVal.value / 2}px ${this.mainRect.height.baseVal.value}px`;
+      this.resizeRight(e);
     } else if (this.allowDrag && this.activeHandle === 'b') {
-      const deltaY = getRelativeCoords(e, this.svg).y - this.startPt.y;
-      this.mainRect.setAttribute('height', this.startH + deltaY);
-      this.reszBPt.setAttribute('cy', this.reszPtStartY + deltaY);
-      this.reszRPt.setAttribute('cy', this.mainRect.height.baseVal.value / 2);
-      this.reszLPt.setAttribute('cy', this.mainRect.height.baseVal.value / 2);
-      this.commentWrapper.style.transformOrigin = `${this.mainRect.width.baseVal.value / 2}px ${this.mainRect.height.baseVal.value}px`;  // Calulate new bottom center 
+      this.resizeBottom(e);
     } else if (this.allowDrag && this.activeHandle === 'l') {
-      const deltaX = getRelativeCoords(e, this.svg).x - this.startPt.x;
-      this.mainRect.setAttribute('width', this.startW - deltaX);
-      this.reszTPt.setAttribute('cx', this.mainRect.width.baseVal.value / 2);
-      this.reszBPt.setAttribute('cx', this.mainRect.width.baseVal.value / 2);
-      this.reszRPt.setAttribute('cx', this.reszPtStartX - deltaX);
-      this.optionsBtn.setAttribute('cx', this.startW - deltaX - 15);
-      this.optionsContainer.style.transform = `translate(${Number(this.startOptionsTransform[1]) - deltaX}px, ${this.startOptionsTransform[2]}px)`;
-      this.commentWrapper.style.transform = `translate(${Number(this.startTransform[1]) + deltaX}px, ${this.startTransform[2]}px) scale(1)`;
-      this.commentWrapper.style.transformOrigin = `${this.mainRect.width.baseVal.value / 2}px ${this.mainRect.height.baseVal.value}px`;
+      this.resizeLeft(e);
     } else if (this.allowDrag && this.activeHandle === 't') {
       const deltaY = getRelativeCoords(e, this.svg).y - this.startPt.y;
       this.mainRect.setAttribute('height', this.startH - deltaY);
@@ -280,6 +301,7 @@ document.getElementById('comment-tool').addEventListener('click', () => {
   svg.addEventListener('click', placeComment = e => {
     activeComment = new BoxComment(svg, settings, getRelativeCoords(e, svg));
     comments.push(activeComment);
+    console.log('Box comment placed.');
     // There is a problem, the click to place the comment is received also by the body listener eventhough it is added later
     // this makes it small by disabling it since it is interpreted as a click out. To avoid this one option is e.stopPropagation()
     // but since it is not a good practice I used a property of the comment called 'placed' with a boolean value of false at start
@@ -298,17 +320,132 @@ function onClickOutHideComments(e) {
     activeComment.disableComment(); // TODO This would be a forEach if more than one comment would be allowed to be enabled at once
     activeComment = undefined;
   } else if (activeComment) {
-    console.log('Comment placed.');
-    activeComment.placed = true;
+    activeComment.placed = true; // This may not be a good solution because it is fired all the time a click is done on a comment
   }
 }
 
 
 
+class BoxCommentWithLace extends BoxComment {
+  constructor(svg, settings, commentedElement) {
+    const commentBoxDist = 120; // Hardcoded value, could be part of the settings of the BoxCommmentWithLace
+    const rect = Utils.createBBox(commentedElement);
+    super(svg, settings, { x: (rect.x.baseVal.value + (rect.width.baseVal.value / 2)), y: (rect.y.baseVal.value - commentBoxDist) }); // Point will be calculated
+    this.commentBoxDist = commentBoxDist;
+    this.commentedElement = commentedElement;
+    this.createLace();
+  }
+
+  commentWithLaceWrapper;
+  commentedElement;
+  boundingBox;
+  wire;
+  wireStartX;
+  wireStartY;
+
+
+  createLace() {
+    this.commentWithLaceWrapper = document.createElementNS(this.svgNS, 'g');
+    this.commentWithLaceWrapper.appendChild(this.commentWrapper);
+    this.boundingBox = Utils.createBBox(this.commentedElement);
+    this.boundingBox.setAttribute('style', 'fill:none;stroke:#000;');
+    this.commentWithLaceWrapper.appendChild(this.boundingBox); // Quizas hacer un grupo para el bbox y el wire
+    this.wire = this.createWire();
+    this.commentWithLaceWrapper.appendChild(this.wire);
+    this.svg.appendChild(this.commentWithLaceWrapper);
+  }
+
+  createWire() {
+    const cubicBezierPath = document.createElementNS(this.svgNS, 'path');
+    this.wireStartX = this.boundingBox.x.baseVal.value + (this.boundingBox.width.baseVal.value / 2);
+    this.wireStartY = this.boundingBox.y.baseVal.value;
+    cubicBezierPath.setAttribute('d',
+      `M${this.wireStartX} ${this.wireStartY} C${this.wireStartX} ${this.wireStartY - 20}, ${this.wireStartX} ${this.wireStartY - this.commentBoxDist + (this.settings.height / 2) + 20}, ${this.wireStartX} ${this.wireStartY - this.commentBoxDist + (this.settings.height / 2)}`);
+    cubicBezierPath.setAttribute('style', 'fill:none;stroke:#000;');
+    return cubicBezierPath;
+  }
+
+  // Extension of methods from the super class
+
+  moveComment(e) {
+    // I have to calculate again the values of delta, how can I use the ones in the parent moveComment() ?
+    const deltaX = getRelativeCoords(e, this.svg).x - this.startPt.x;
+    const deltaY = getRelativeCoords(e, this.svg).y - this.startPt.y;
+    this.wire.setAttribute('d',
+      `M${this.wireStartX} ${this.wireStartY} C${this.wireStartX} ${this.wireStartY - 20}, ${Number(this.startTransform[1]) + (this.mainRect.width.baseVal.value / 2) + deltaX} ${Number(this.startTransform[2]) + this.mainRect.height.baseVal.value + 20 + deltaY}, ${Number(this.startTransform[1]) + (this.mainRect.width.baseVal.value / 2) + deltaX} ${Number(this.startTransform[2]) + this.mainRect.height.baseVal.value + deltaY}`);
+    super.moveComment(e);
+  }
+
+  resizeLeft(e) {
+    // I have to calculate again the values of delta, how can I use the ones in the parent resizeLeft() ?
+    const deltaX = getRelativeCoords(e, this.svg).x - this.startPt.x;
+    this.wire.setAttribute('d',
+      `M${this.wireStartX} ${this.wireStartY} C${this.wireStartX} ${this.wireStartY - 20}, ${Number(this.startTransform[1]) + (this.mainRect.width.baseVal.value / 2) + deltaX} ${Number(this.startTransform[2]) + this.mainRect.height.baseVal.value + 20}, ${Number(this.startTransform[1]) + (this.mainRect.width.baseVal.value / 2) + deltaX} ${Number(this.startTransform[2]) + this.mainRect.height.baseVal.value}`);
+    super.resizeLeft(e);
+  }
+
+  resizeRight(e) {
+    this.wire.setAttribute('d',
+      `M${this.wireStartX} ${this.wireStartY} C${this.wireStartX} ${this.wireStartY - 20}, ${Number(this.startTransform[1]) + (this.mainRect.width.baseVal.value / 2)} ${Number(this.startTransform[2]) + this.mainRect.height.baseVal.value + 20}, ${Number(this.startTransform[1]) + (this.mainRect.width.baseVal.value / 2)} ${Number(this.startTransform[2]) + this.mainRect.height.baseVal.value}`);
+    super.resizeRight(e);
+  }
+
+  resizeBottom(e) {
+    this.wire.setAttribute('d',
+      `M${this.wireStartX} ${this.wireStartY} C${this.wireStartX} ${this.wireStartY - 20}, ${Number(this.startTransform[1]) + (this.mainRect.width.baseVal.value / 2)} ${Number(this.startTransform[2]) + this.mainRect.height.baseVal.value + 20}, ${Number(this.startTransform[1]) + (this.mainRect.width.baseVal.value / 2)} ${Number(this.startTransform[2]) + this.mainRect.height.baseVal.value}`);
+    super.resizeBottom(e);
+  }
+
+
+  // Eliminar estos dos metodos ya que si al hacer mousedown se guarda siempre el valor de startTrasnform en el padre no seria necesario hacer esta exptension
+  mousedownRightHandleHandler(e) {
+    // Transoform is needed to adapt the wire
+    this.startTransform = this.commentWrapper.style.transform.match(this.transformRegExp);
+    super.mousedownRightHandleHandler(e);
+  }
+
+  mousedownBottomHandleHandler(e) {
+    // Transoform is needed to adapt the wire
+    this.startTransform = this.commentWrapper.style.transform.match(this.transformRegExp);
+    super.mousedownBottomHandleHandler(e);
+  }
+
+  deleteComment() {
+    // TODO: remove the bounding box and the wire
+
+    super.deleteComment();
+  }
+
+}
+
 // const textContent = document.getElementById('textContent');
 // const textBoxW = textContent.getBBox().width;
 // const textBoxH = textContent.getBBox().height;
 // console.log(textBoxW, textBoxH);
+
+
+
+//document.getElementById('testShape').addEventListener('click', e => svg.appendChild(Utils.createBBox(e.target)));
+
+document.getElementById('testShape').addEventListener('click', e => {
+  activeComment = new BoxCommentWithLace(svg, settings, e.target);
+  // Should be also added to activeComments and comments array and all the rest...
+  // ...
+});
+
+
+class Utils {
+  static createBBox(element, offset = 5, fillet = 5) {
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', element.getBBox().x - offset);
+    rect.setAttribute('y', element.getBBox().y - offset);
+    rect.setAttribute('width', element.getBBox().width + offset * 2);
+    rect.setAttribute('height', element.getBBox().height + offset * 2);
+    rect.setAttribute('rx', fillet);
+    rect.setAttribute('ry', fillet);
+    return rect;
+  }
+}
 
 
 
@@ -325,22 +462,4 @@ function uuidv4() {
   return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
     (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
   );
-}
-
-
-
-
-document.getElementById('testShape').addEventListener('click', e => svg.appendChild(createBBox(e)));
-
-
-function createBBox(e, offset = 5, fillet = 5) {
-  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-  rect.setAttribute('x', e.target.getBBox().x - offset);
-  rect.setAttribute('y', e.target.getBBox().y - offset);
-  rect.setAttribute('width', e.target.getBBox().width + offset * 2);
-  rect.setAttribute('height', e.target.getBBox().height + offset * 2);
-  rect.setAttribute('rx', fillet);
-  rect.setAttribute('ry', fillet);
-  rect.setAttribute('style', 'fill:none;stroke:#000;');
-  return rect;
 }
