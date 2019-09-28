@@ -20,10 +20,11 @@ class BoxComment {
     this.mousemoveHandler = this.mousemoveHandler.bind(this);
     this.mouseupHandler = this.mouseupHandler.bind(this);
     this.mousedownHandler = this.mousedownHandler.bind(this);
-    this.enableComment = this.enableComment.bind(this);
+    this.maximizeComment = this.maximizeComment.bind(this);
+    this.setAsActiveComment = this.setAsActiveComment.bind(this);
     this.deleteComment = this.deleteComment.bind(this);
     this.createComment(point);
-    this.enableComment();
+    this.maximizeComment();
   }
 
   placed = false;
@@ -56,6 +57,8 @@ class BoxComment {
   reszPtStartY;
   // An auxiliary SVG group to hide everything but the rectangle when the comment is minimized
   auxGroup;
+
+  minimized;
 
   mousedownHandler(e) {
     // This is common for all the handlers
@@ -195,23 +198,37 @@ class BoxComment {
 
   // Currently each time a comment is enabled the mousemove and mouseup listeners are added to the svg canvas and
   // those are removed when the comment is disabled. Another option would be to have them always and share them
-  enableComment() {
+  maximizeComment() {
     this.svg.addEventListener('mousemove', this.mousemoveHandler); // TODO Just allow one comment to be enabled simultaneously, otherwise several event listeners would be added
     this.svg.addEventListener('mouseup', this.mouseupHandler);
-    this.mainRect.removeEventListener('click', this.enableComment);
+    this.mainRect.removeEventListener('click', this.maximizeComment);
     this.auxGroup.style.display = 'unset';
     this.commentWrapper.style.transform = this.commentWrapper.style.transform.replace(/scale\(-*\d*\.*\d+\)/, 'scale(1)');
     this.mainRect.style.cursor = 'unset';
-    activeComment = this;
+    this.setAsActiveComment();
+    this.commentWrapper.addEventListener('click', this.setAsActiveComment);
+    this.minimized = false;
   }
 
-  disableComment() {
+  setAsActiveComment() {
+    // Before changing to the new activeComment use the previous value
+    if (activeComment) { // TODO: Using a global variable inside the class might not be right, another option?
+      activeComment.mainRect.style.stroke = settings.rectStroke;
+    }
+    activeComment = this; // TODO: Using a global variable inside the class might not be right, another option?
+    this.mainRect.style.stroke = '#000'; // Use settings here also
+    // TODO: Move it to the end of the group of comments
+  }
+
+  minimizeComment() {
     this.svg.removeEventListener('mousemove', this.mousemoveHandler);
     this.svg.removeEventListener('mouseup', this.mouseupHandler);
-    this.mainRect.addEventListener('click', this.enableComment);
+    this.mainRect.addEventListener('click', this.maximizeComment);
+    this.commentWrapper.removeEventListener('click', this.setAsActiveComment);
     this.auxGroup.style.display = 'none';
     this.commentWrapper.style.transform = this.commentWrapper.style.transform.replace(/scale\(-*\d*\.*\d+\)/, 'scale(0.1)');
     this.mainRect.style.cursor = 'pointer';
+    this.minimized = true;
   }
 
   moveComment(e) {
@@ -279,53 +296,17 @@ class BoxComment {
   deleteComment() {
     this.svg.removeEventListener('mousemove', this.mousemoveHandler);
     this.svg.removeEventListener('mouseup', this.mouseupHandler);
-    comments.splice(comments.findIndex(o => o.id === this.id), 1);
+    comments.splice(comments.findIndex(o => o.id === this.id), 1); // TODO: Using a global variable inside the class might not be right, another option?
     this.commentWrapper.remove();
     // If it is the last comment then remove the main event listener that checks for click outs
-    if (comments.length === 0) {
-      document.querySelector('body').removeEventListener('click', clickOutHandler);
+    if (comments.length === 0) { // TODO: Using a global variable inside the class might not be right, another option?
+      document.querySelector('body').removeEventListener('click', commentClickOutHandler);
+      // This is required later to check if a commentClickOutHandler already exists and if not add one
+      commentClickOutHandler = undefined;
     }
   }
 
 }
-
-
-let activeComment;
-
-const comments = [];
-
-// Store here the clickOutHandler for the comments so it can be removed if there are no comments in the document
-let clickOutHandler;
-
-
-document.getElementById('comment-tool').addEventListener('click', () => {
-  let placeComment;
-  svg.addEventListener('click', placeComment = e => {
-    activeComment = new BoxComment(svg, settings, getRelativeCoords(e, svg));
-    comments.push(activeComment);
-    console.log('Box comment placed.');
-    // There is a problem, the click to place the comment is received also by the body listener eventhough it is added later
-    // this makes it small by disabling it since it is interpreted as a click out. To avoid this one option is e.stopPropagation()
-    // but since it is not a good practice I used a property of the comment called 'placed' with a boolean value of false at start
-    // which makes it avoid the disableComment() once in onClickOutHideComments() and set it to true forever since it has been placed
-    // e.stopPropagation();
-    if (comments.length === 1) {
-      document.querySelector('body').addEventListener('click', clickOutHandler = e => onClickOutHideComments(e));
-    }
-    svg.removeEventListener('click', placeComment);
-  });
-});
-
-function onClickOutHideComments(e) {
-  // TODO activeComment is the enabled one, what to do if more than one can be enabled?
-  if (activeComment && activeComment.placed && !e.target.closest('.commentWrapper')) {
-    activeComment.disableComment(); // TODO This would be a forEach if more than one comment would be allowed to be enabled at once
-    activeComment = undefined;
-  } else if (activeComment) {
-    activeComment.placed = true; // This may not be a good solution because it is fired all the time a click is done on a comment
-  }
-}
-
 
 
 class BoxCommentWithLace extends BoxComment {
@@ -367,7 +348,7 @@ class BoxCommentWithLace extends BoxComment {
     return cubicBezierPath;
   }
 
-  // Extension of methods from the super class
+  // The resize and move methods from the parent class are extended to adapt the wire element
 
   moveComment(e) {
     // I have to calculate again the values of delta, how can I use the ones in the parent moveComment() ?
@@ -398,13 +379,84 @@ class BoxCommentWithLace extends BoxComment {
     super.resizeBottom(e);
   }
 
-  deleteComment() {
-    // TODO: remove the bounding box and the wire
+  setAsActiveComment() {
+    // TODO: Change the wire color of the previous and the current
+    super.setAsActiveComment();
+  }
 
+  // The delete method could replace the one of the parent
+  deleteComment() {
+    this.commentWithLaceWrapper.remove(); // This removes the group but calling the super also makes it be removed twice
     super.deleteComment();
   }
 
 }
+
+
+
+
+let activeComment;
+
+// All types of comments go here
+const comments = [];
+
+// Store here the commentClickOutHandler for the comments so it can be removed if there are no comments in the document
+let commentClickOutHandler;
+
+
+document.getElementById('comment-tool').addEventListener('click', () => {
+  let placeComment;
+  svg.addEventListener('click', placeComment = e => {
+    activeComment = new BoxComment(svg, settings, getRelativeCoords(e, svg));
+    comments.push(activeComment);
+    console.log('Box comment placed.');
+    // There is a problem, the click to place the comment is received also by the body listener eventhough it is added later
+    // this makes it small by disabling it since it is interpreted as a click out. To avoid this one option is e.stopPropagation()
+    // but since it is not a good practice I used a property of the comment called 'placed' with a boolean value of false at start
+    // which makes it avoid the minimizeComment() once in onClickOutHideComments() and set it to true forever since it has been placed
+    // e.stopPropagation();
+    if (!commentClickOutHandler) {
+      document.querySelector('body').addEventListener('click', commentClickOutHandler = e => onClickOutHideComments(e));
+    }
+    // TODO: Remove it also by pressing 'Esc' or clicking the button again
+    svg.removeEventListener('click', placeComment);
+  });
+});
+
+document.getElementById('lassoComment-tool').addEventListener('click', () => {
+  let placeLassoComment;
+  svg.addEventListener('click', placeLassoComment = e => {
+    if (e.target.closest('[data-select]')) {
+      activeComment = new BoxCommentWithLace(svg, settings, e.target.closest('[data-select]'));
+      comments.push(activeComment);
+      console.log('Lasso comment placed.');
+      if (!commentClickOutHandler) {
+        document.querySelector('body').addEventListener('click', commentClickOutHandler = e => onClickOutHideComments(e));
+      }
+      // TODO: Remove it also by pressing 'Esc' or clicking the button again
+      svg.removeEventListener('click', placeLassoComment);
+    }
+  });
+});
+
+function onClickOutHideComments(e) {
+  if (activeComment && activeComment.placed && !e.target.closest('.commentWrapper')) {
+    comments.forEach(comment => {
+      if (comment.minimized === false) {
+        comment.minimizeComment();
+      }
+    });
+    activeComment = undefined;
+  } else if (activeComment) {
+    activeComment.placed = true; // This may not be a good solution because it is fired all the time a click is done on a comment
+  }
+}
+
+
+
+
+
+
 
 // const textContent = document.getElementById('textContent');
 // const textBoxW = textContent.getBBox().width;
@@ -413,13 +465,6 @@ class BoxCommentWithLace extends BoxComment {
 
 
 
-//document.getElementById('testShape').addEventListener('click', e => svg.appendChild(Utils.createBBox(e.target)));
-
-document.getElementById('testShape').addEventListener('click', e => {
-  activeComment = new BoxCommentWithLace(svg, settings, e.target);
-  // Should be also added to activeComments and comments array and all the rest...
-  // ...
-});
 
 
 class Utils {
@@ -434,8 +479,6 @@ class Utils {
     return rect;
   }
 }
-
-
 
 function getRelativeCoords(evt, svgDoc) {
   const originPt = svgDoc.createSVGPoint();
