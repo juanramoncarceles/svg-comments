@@ -19,8 +19,7 @@ class BoxComment {
     this.svg = svg;
     this.mousemoveHandler = this.mousemoveHandler.bind(this);
     this.mouseupHandler = this.mouseupHandler.bind(this);
-    this.mousedownRightHandleHandler = this.mousedownRightHandleHandler.bind(this);
-    this.mousedownBottomHandleHandler = this.mousedownBottomHandleHandler.bind(this);
+    this.mousedownHandler = this.mousedownHandler.bind(this);
     this.enableComment = this.enableComment.bind(this);
     this.deleteComment = this.deleteComment.bind(this);
     this.createComment(point);
@@ -58,22 +57,39 @@ class BoxComment {
   // An auxiliary SVG group to hide everything but the rectangle when the comment is minimized
   auxGroup;
 
-  // Para simplificar habria que poner un solo mousedown en commentWrapper que controlara de donde viene el mousedown y aplicara correspondientemente el codigo
-  mousedownRightHandleHandler(e) {
-    this.allowDrag = true;
-    this.startPt = getRelativeCoords(e, this.svg);
-    this.startW = this.mainRect.width.baseVal.value;
-    this.reszPtStartX = this.reszRPt.cx.baseVal.value;
-    this.startOptionsTransform = this.optionsContainer.style.transform.match(this.transformRegExp);
-    this.activeHandle = 'r';
-  }
-
-  mousedownBottomHandleHandler(e) {
-    this.allowDrag = true;
-    this.startPt = getRelativeCoords(e, this.svg);
-    this.startH = this.mainRect.height.baseVal.value;
-    this.reszPtStartY = this.reszBPt.cy.baseVal.value;
-    this.activeHandle = 'b';
+  mousedownHandler(e) {
+    // This is common for all the handlers
+    if (e.target.closest('[data-handle]') && e.target.closest('[data-handle]').dataset.handle === 'true') {
+      this.allowDrag = true;
+      this.startPt = getRelativeCoords(e, this.svg);
+      this.startTransform = this.commentWrapper.style.transform.match(this.transformRegExp);
+    } else {
+      // In case of mousedowns inside the comment that are not in a handle
+      return;
+    }
+    // These are specific for each handle
+    // If the handle is a group with children then e.target.closest() should be used to target the handle group.
+    if (e.target.closest('[data-name]').dataset.name === 'm') {
+      this.activeHandle = 'm';
+    } else if (e.target.dataset.name === 'r') {
+      this.startW = this.mainRect.width.baseVal.value;
+      this.reszPtStartX = this.reszRPt.cx.baseVal.value;
+      this.startOptionsTransform = this.optionsContainer.style.transform.match(this.transformRegExp);
+      this.activeHandle = 'r';
+    } else if (e.target.dataset.name === 'b') {
+      this.startH = this.mainRect.height.baseVal.value;
+      this.reszPtStartY = this.reszBPt.cy.baseVal.value;
+      this.activeHandle = 'b';
+    } else if (e.target.dataset.name === 'l') {
+      this.startW = this.mainRect.width.baseVal.value;
+      this.reszPtStartX = this.reszRPt.cx.baseVal.value;
+      this.startOptionsTransform = this.optionsContainer.style.transform.match(this.transformRegExp);
+      this.activeHandle = 'l';
+    } else if (e.target.dataset.name === 't') {
+      this.startH = this.mainRect.height.baseVal.value;
+      this.reszPtStartY = this.reszBPt.cy.baseVal.value;
+      this.activeHandle = 't';
+    }
   }
 
   createComment(point) {
@@ -82,6 +98,7 @@ class BoxComment {
     this.commentWrapper.style.transformOrigin = `${this.settings.width / 2}px ${this.settings.height}px`;
     this.commentWrapper.innerHTML = '<polygon style="opacity:0;" points="-25 -10 -10 -25 15 0 0 15" />';
     this.commentWrapper.classList.add('commentWrapper');
+    this.commentWrapper.addEventListener('mousedown', this.mousedownHandler);
     // The main rectangle
     this.mainRect = document.createElementNS(this.svgNS, 'rect');
     this.mainRect.setAttribute('x', '0');
@@ -105,43 +122,32 @@ class BoxComment {
     this.reszRPt.setAttribute('cy', this.settings.height / 2);
     this.reszRPt.setAttribute('r', this.settings.dragPtRadius);
     this.reszRPt.setAttribute('style', 'cursor:e-resize');
-    this.reszRPt.addEventListener('mousedown', this.mousedownRightHandleHandler);
+    this.reszRPt.dataset.handle = 'true';
+    this.reszRPt.dataset.name = 'r';
     // The left handle
     this.reszLPt = document.createElementNS(this.svgNS, 'circle');
     this.reszLPt.setAttribute('cx', '0');
     this.reszLPt.setAttribute('cy', this.settings.height / 2);
     this.reszLPt.setAttribute('r', this.settings.dragPtRadius);
     this.reszLPt.setAttribute('style', 'cursor:w-resize');
-    this.reszLPt.addEventListener('mousedown', e => {
-      this.allowDrag = true;
-      this.startPt = getRelativeCoords(e, this.svg);
-      this.startW = this.mainRect.width.baseVal.value;
-      this.reszPtStartX = this.reszRPt.cx.baseVal.value;
-      this.startTransform = this.commentWrapper.style.transform.match(this.transformRegExp);
-      this.startOptionsTransform = this.optionsContainer.style.transform.match(this.transformRegExp);
-      this.activeHandle = 'l';
-    });
+    this.reszLPt.dataset.handle = 'true';
+    this.reszLPt.dataset.name = 'l';
     // The top hanlde
     this.reszTPt = document.createElementNS(this.svgNS, 'circle');
     this.reszTPt.setAttribute('cx', this.settings.width / 2);
     this.reszTPt.setAttribute('cy', '0');
     this.reszTPt.setAttribute('r', this.settings.dragPtRadius);
     this.reszTPt.setAttribute('style', 'cursor:n-resize');
-    this.reszTPt.addEventListener('mousedown', e => {
-      this.allowDrag = true;
-      this.startPt = getRelativeCoords(e, this.svg);
-      this.startH = this.mainRect.height.baseVal.value;
-      this.reszPtStartY = this.reszBPt.cy.baseVal.value;
-      this.startTransform = this.commentWrapper.style.transform.match(this.transformRegExp);
-      this.activeHandle = 't';
-    });
+    this.reszTPt.dataset.handle = 'true';
+    this.reszTPt.dataset.name = 't';
     // The bottom handle
     this.reszBPt = document.createElementNS(this.svgNS, 'circle');
     this.reszBPt.setAttribute('cx', this.settings.width / 2);
     this.reszBPt.setAttribute('cy', this.settings.height);
     this.reszBPt.setAttribute('r', this.settings.dragPtRadius);
     this.reszBPt.setAttribute('style', 'cursor:s-resize');
-    this.reszBPt.addEventListener('mousedown', this.mousedownBottomHandleHandler);
+    this.reszBPt.dataset.handle = 'true';
+    this.reszBPt.dataset.name = 'b';
     // Append all the handles to the group and the group to the comment
     handlesGroup.appendChild(this.reszRPt);
     handlesGroup.appendChild(this.reszLPt);
@@ -152,12 +158,8 @@ class BoxComment {
     this.movePt = document.createElementNS(this.svgNS, 'g');
     this.movePt.classList.add('commentMove');
     this.movePt.setAttribute('style', 'transform:translate(-24px,-24px);cursor:move;');
-    this.movePt.addEventListener('mousedown', e => {
-      this.allowDrag = true;
-      this.startPt = getRelativeCoords(e, this.svg);
-      this.startTransform = this.commentWrapper.style.transform.match(this.transformRegExp);
-      this.activeHandle = 'm';
-    });
+    this.movePt.dataset.handle = 'true';
+    this.movePt.dataset.name = 'm';
     // The contents of the move handle are added with innerHTML temporarily
     this.movePt.innerHTML = '<circle style="opacity:0" cx="12" cy="12" r="12" /><polygon style="fill:#494949;" points="12 0 7 5 10 5 10 10 5 10 5 7 0 12 5 17 5 14 10 14 10 19 7 19 12 24 17 19 14 19 14 14 19 14 19 17 24 12 19 7 19 10 14 10 14 5 17 5" />';
     this.auxGroup.appendChild(this.movePt);
@@ -394,20 +396,6 @@ class BoxCommentWithLace extends BoxComment {
     this.wire.setAttribute('d',
       `M${this.wireStartX} ${this.wireStartY} C${this.wireStartX} ${this.wireStartY - 20}, ${Number(this.startTransform[1]) + (this.mainRect.width.baseVal.value / 2)} ${Number(this.startTransform[2]) + this.mainRect.height.baseVal.value + 20}, ${Number(this.startTransform[1]) + (this.mainRect.width.baseVal.value / 2)} ${Number(this.startTransform[2]) + this.mainRect.height.baseVal.value}`);
     super.resizeBottom(e);
-  }
-
-
-  // Eliminar estos dos metodos ya que si al hacer mousedown se guarda siempre el valor de startTrasnform en el padre no seria necesario hacer esta exptension
-  mousedownRightHandleHandler(e) {
-    // Transoform is needed to adapt the wire
-    this.startTransform = this.commentWrapper.style.transform.match(this.transformRegExp);
-    super.mousedownRightHandleHandler(e);
-  }
-
-  mousedownBottomHandleHandler(e) {
-    // Transoform is needed to adapt the wire
-    this.startTransform = this.commentWrapper.style.transform.match(this.transformRegExp);
-    super.mousedownBottomHandleHandler(e);
   }
 
   deleteComment() {
