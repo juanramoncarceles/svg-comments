@@ -7,6 +7,7 @@ const settings = {
   dragPtRadius: '8',
   rectFill: '#bef0e1',
   rectStroke: '#acacac',
+  rectStrokeActive: '#000',
   handlesFill: '#579c9e',
   iconsFill: '#494949'
 }
@@ -25,6 +26,7 @@ class BoxComment {
     this.deleteComment = this.deleteComment.bind(this);
     this.createComment(point);
     this.maximizeComment();
+    this.setAsActiveComment();
   }
 
   placed = false;
@@ -193,7 +195,20 @@ class BoxComment {
     this.textContent.innerHTML = '<tspan x="0" dy="0">Add a comment...</tspan>';
     this.auxGroup.appendChild(this.textContent);
     this.commentWrapper.appendChild(this.auxGroup);
-    this.svg.appendChild(this.commentWrapper);
+    // Check if there is already an svg group for the comments, if not create it.
+    // Another option to check if it exists could be to place it always as the last child and use: this.svg.lastElementChild.id === "comments"
+    console.log(this.svg.children);
+    // TODO Something wrong here
+    for (let i = 0; i < this.svg.children.length; i++) {
+      if (this.svg.children[i].id === 'comments') {
+        this.svg.children[i].appendChild(this.commentWrapper);
+        break;
+      } else if (i === this.svg.children.length - 1) {
+        const commentsGroup = document.createElementNS(this.svgNS, 'g');
+        commentsGroup.appendChild(this.commentWrapper);
+        this.svg.appendChild(commentsGroup);
+      }
+    }
   }
 
   // Currently each time a comment is enabled the mousemove and mouseup listeners are added to the svg canvas and
@@ -205,19 +220,23 @@ class BoxComment {
     this.auxGroup.style.display = 'unset';
     this.commentWrapper.style.transform = this.commentWrapper.style.transform.replace(/scale\(-*\d*\.*\d+\)/, 'scale(1)');
     this.mainRect.style.cursor = 'unset';
-    this.setAsActiveComment();
     this.commentWrapper.addEventListener('click', this.setAsActiveComment);
     this.minimized = false;
   }
 
+  // TODO: Here I am using activeComment which is a global variable. Use it inside the class might not be right, another option?
   setAsActiveComment() {
-    // Before changing to the new activeComment use the previous value
-    if (activeComment) { // TODO: Using a global variable inside the class might not be right, another option?
-      activeComment.mainRect.style.stroke = settings.rectStroke;
+    // Before changing to the new activeComment use the previous activeComment if there is one as inactive
+    if (activeComment && activeComment.id !== this.id) {
+      activeComment.setAsInactive();
     }
-    activeComment = this; // TODO: Using a global variable inside the class might not be right, another option?
-    this.mainRect.style.stroke = '#000'; // Use settings here also
+    activeComment = this;
+    this.mainRect.style.stroke = this.settings.rectStrokeActive;
     // TODO: Move it to the end of the group of comments
+  }
+
+  setAsInactive() {
+    this.mainRect.style.stroke = this.settings.rectStroke;
   }
 
   minimizeComment() {
@@ -329,12 +348,12 @@ class BoxCommentWithLace extends BoxComment {
 
   createLace() {
     this.commentWithLaceWrapper = document.createElementNS(this.svgNS, 'g');
-    this.commentWithLaceWrapper.appendChild(this.commentWrapper);
     this.boundingBox = Utils.createBBox(this.commentedElement);
     this.boundingBox.setAttribute('style', 'fill:none;stroke:#000;');
     this.commentWithLaceWrapper.appendChild(this.boundingBox); // Quizas hacer un grupo para el bbox y el wire
     this.wire = this.createWire();
     this.commentWithLaceWrapper.appendChild(this.wire);
+    this.commentWithLaceWrapper.appendChild(this.commentWrapper);
     this.svg.appendChild(this.commentWithLaceWrapper);
   }
 
@@ -380,8 +399,25 @@ class BoxCommentWithLace extends BoxComment {
   }
 
   setAsActiveComment() {
-    // TODO: Change the wire color of the previous and the current
     super.setAsActiveComment();
+    // Is necessary to only run this if it is completely placed otherwise the wire and bbox are not created yet and throws an error
+    // so the first click to place the lasso comment doesnt run this, it gets the active colors from in the createLace() method
+    if (this.placed) {
+      this.wire.style.stroke = this.settings.rectStrokeActive;
+      this.boundingBox.style.stroke = this.settings.rectStrokeActive;
+    }
+  }
+
+  setAsInactive() {
+    this.wire.style.stroke = 'rgb(172, 172, 172)';
+    this.boundingBox.style.stroke = 'rgb(172, 172, 172)';
+    super.setAsInactive();
+  }
+
+  minimizeComment() {
+    super.minimizeComment();
+    this.wire.style.stroke = 'rgb(172, 172, 172)';
+    this.boundingBox.style.stroke = 'rgb(172, 172, 172)';
   }
 
   // The delete method could replace the one of the parent
