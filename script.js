@@ -195,20 +195,33 @@ class BoxComment {
     this.textContent.innerHTML = '<tspan x="0" dy="0">Add a comment...</tspan>';
     this.auxGroup.appendChild(this.textContent);
     this.commentWrapper.appendChild(this.auxGroup);
-    // Check if there is already an svg group for the comments, if not create it.
-    // Another option to check if it exists could be to place it always as the last child and use: this.svg.lastElementChild.id === "comments"
-    console.log(this.svg.children);
-    // TODO Something wrong here
+    this.placeCommentInGroup('comments', this.commentWrapper); // Maybe the first parameter should be passed in the constructor ?
+  }
+
+  // Checks if there is already an svg group for the comments, and if not create it.
+  // Another option to check if the group exists could be to place it always as the last child and use: this.svg.lastElementChild.id === "comments"
+  placeCommentInGroup(groupId, svgComment) {
     for (let i = 0; i < this.svg.children.length; i++) {
-      if (this.svg.children[i].id === 'comments') {
-        this.svg.children[i].appendChild(this.commentWrapper);
+      if (this.svg.children[i].nodeName === 'g' && this.svg.children[i].id === groupId) {
+        this.svg.children[i].appendChild(svgComment);
         break;
       } else if (i === this.svg.children.length - 1) {
         const commentsGroup = document.createElementNS(this.svgNS, 'g');
-        commentsGroup.appendChild(this.commentWrapper);
+        commentsGroup.id = groupId;
+        commentsGroup.appendChild(svgComment);
         this.svg.appendChild(commentsGroup);
+        break; // This 'break' is required to avoid an infinite loop. Maybe a while loop would be better ?
       }
     }
+  }
+
+
+  // Places an element as the last child of its parent, this could be a method bringToFront() of a parent class common to all svg elements I create
+  bringCommentToTop() {
+    // if (this.commentWrapper.lastChild) { // If it is already the last one it wouldnt be necessary
+    // }
+    console.log('on top parent');
+    this.commentWrapper.parentNode.appendChild(this.commentWrapper); // If this doesnt work use instead  ParentNode.append()
   }
 
   // Currently each time a comment is enabled the mousemove and mouseup listeners are added to the svg canvas and
@@ -232,7 +245,7 @@ class BoxComment {
     }
     activeComment = this;
     this.mainRect.style.stroke = this.settings.rectStrokeActive;
-    // TODO: Move it to the end of the group of comments
+    this.bringCommentToTop();
   }
 
   setAsInactive() {
@@ -327,7 +340,7 @@ class BoxComment {
 
 }
 
-
+// All classes that inherit should create a <g> that contains all the comment and link it with the property called commentWrapper
 class BoxCommentWithLace extends BoxComment {
   constructor(svg, settings, commentedElement) {
     const commentBoxDist = 120; // Hardcoded value, could be part of the settings of the BoxCommmentWithLace
@@ -354,7 +367,7 @@ class BoxCommentWithLace extends BoxComment {
     this.wire = this.createWire();
     this.commentWithLaceWrapper.appendChild(this.wire);
     this.commentWithLaceWrapper.appendChild(this.commentWrapper);
-    this.svg.appendChild(this.commentWithLaceWrapper);
+    super.placeCommentInGroup('comments', this.commentWithLaceWrapper); // Maybe the first parameter should be passed in the constructor ?
   }
 
   createWire() {
@@ -396,6 +409,13 @@ class BoxCommentWithLace extends BoxComment {
     this.wire.setAttribute('d',
       `M${this.wireStartX} ${this.wireStartY} C${this.wireStartX} ${this.wireStartY - 20}, ${Number(this.startTransform[1]) + (this.mainRect.width.baseVal.value / 2)} ${Number(this.startTransform[2]) + this.mainRect.height.baseVal.value + 20}, ${Number(this.startTransform[1]) + (this.mainRect.width.baseVal.value / 2)} ${Number(this.startTransform[2]) + this.mainRect.height.baseVal.value}`);
     super.resizeBottom(e);
+  }
+
+  // Overrides the method in the parent
+  bringCommentToTop() {
+    if (this.placed) {
+      this.commentWithLaceWrapper.parentNode.appendChild(this.commentWithLaceWrapper);
+    }
   }
 
   setAsActiveComment() {
